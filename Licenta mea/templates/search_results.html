@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Search Results - Movie App{% endblock %}
+
+{% block content %}
+    <h2>Search Results for "{{ query }}"</h2>
+    <div class="movie-list">
+        {% for movie_id, title, poster_path, overview, release_date, genres in movies %}
+            <div class="movie-item">
+                <img src="https://image.tmdb.org/t/p/w200{{ poster_path }}" alt="{{ title }}" class="movie-poster">
+                <div class="movie-info">
+                    <p class="movie-title">
+                        <a href="{{ url_for('movie_detail', movie_id=movie_id) }}">{{ title }}</a> ({{ release_date }})
+                    </p>
+                    <p class="movie-genres"><strong>Genres:</strong> {{ genres }}</p>
+                    <p class="movie-overview">{{ overview }}</p>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endblock %}

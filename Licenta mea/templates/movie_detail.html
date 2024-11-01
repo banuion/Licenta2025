@@ -1,0 +1,124 @@
+<!-- movie_detail.html -->
+{% extends 'base.html' %}
+
+{% block title %}{{ movie[1] }} - Movie App{% endblock %}
+
+{% block content %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for category, message in messages %}
+            <li class="flash {{ category }}">{{ message }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <div class="container clearfix">
+        {% if movie[2] %}
+            <img src="https://image.tmdb.org/t/p/w500{{ movie[2] }}" alt="{{ movie[1] }}" class="movie-poster">
+        {% endif %}
+        <div class="movie-details">
+            <h2>{{ movie[1] }} ({{ movie[4][:4] }})</h2> <!-- Year of Release -->
+            <p><strong>Release Date:</strong> {{ movie[4] }}</p>
+            <p><strong>Genres:</strong> {{ movie[5] }}</p>
+            <p>{{ movie[3] }}</p> <!-- Overview -->
+        </div>
+        {% if trailer_url %}
+            <div class="trailer">
+                <h2>Trailer</h2>
+                <iframe width="560" height="315" src="{{ trailer_url }}" frameborder="0" allowfullscreen></iframe>
+            </div>
+        {% else %}
+            <p>Trailer not available.</p>
+        {% endif %}
+        <div style="clear: both;"></div>
+        <!-- Back Button -->
+       
+    </div>
+
+   <!-- Rating Section -->
+<div class="rating-section">
+    <h2>Rating</h2>
+    <div class="average-rating">
+        <p><strong>Average Rating:</strong></p>
+        <div class="stars">
+            {% set avg = avg_rating if avg_rating is not none else 0 %}
+            {% for i in range(1, 6) %}
+                <i class="fa-star {% if avg >= i %}fas{% else %}far{% endif %}"></i>
+            {% endfor %}
+        </div>
+        <p>{{ avg_rating if avg_rating else "Not yet rated" }}</p>
+    </div>
+    
+
+    <div class="user-rating">
+        <p><strong>Your Rating:</strong></p>
+        <div class="stars">
+            {% for i in range(1, 6) %}
+                <i class="fa-star {% if user_rating and user_rating >= i %}fas{% else %}far{% endif %}"></i>
+            {% endfor %}
+        </div>
+        <p>{{ user_rating if user_rating else "No rating yet" }}</p>
+    </div>
+
+    <!-- Rating Form -->
+    <form method="post" action="{{ url_for('movie_detail', movie_id=movie[0]) }}">
+        <label for="rating">Rate this movie:</label><br>
+        <select name="rating" id="rating" required>
+            <option value="">Select a rating</option>
+            {% for i in range(1, 6) %}
+                <option value="{{ i }}" {% if user_rating == i %}selected{% endif %}>{{ i }}</option>
+            {% endfor %}
+        </select><br><br>
+        <button type="submit">Submit Rating</button>
+    </form>
+</div>
+
+
+    <!-- Content-Based Recommended Movies Section -->
+    <h2>Recommended Movies (Based on Content)</h2>
+    {% if content_based_recommended_movies %}
+        <div class="recommended-movies">
+            {% for rec_movie in content_based_recommended_movies %}
+                <div class="recommended-movie-item">
+                    <a href="{{ url_for('movie_detail', movie_id=rec_movie[0]) }}">
+                        {% if rec_movie[2] %}
+                            <img src="https://image.tmdb.org/t/p/w200{{ rec_movie[2] }}" alt="{{ rec_movie[1] }}">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='no_image_available.png') }}" alt="No Image Available">
+                        {% endif %}
+                        <p>{{ rec_movie[1] }}</p>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>No content-based recommendations available.</p>
+    {% endif %}
+
+    <!-- Hybrid Recommended Movies Section -->
+    <h2>Recommended Movies for You (Hybrid)</h2>
+    {% if hybrid_recommended_movies %}
+        <div class="recommended-movies">
+            {% for rec_movie in hybrid_recommended_movies %}
+                <div class="recommended-movie-item">
+                    <a href="{{ url_for('movie_detail', movie_id=rec_movie[0]) }}">
+                        {% if rec_movie[2] %}
+                            <img src="https://image.tmdb.org/t/p/w200{{ rec_movie[2] }}" alt="{{ rec_movie[1] }}">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='no_image_available.png') }}" alt="No Image Available">
+                        {% endif %}
+                        <p>{{ rec_movie[1] }}</p>
+                    </a>
+                    
+                </div>
+            {% endfor %}
+            
+        </div>
+    {% else %}
+        <p>No hybrid recommendations available.</p>
+
+    {% endif %}
+    <p><a href="javascript:history.back()" class="back-button">&#8592; Back</a></p>
+{% endblock %}
