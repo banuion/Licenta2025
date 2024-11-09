@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Home - Movie App{% endblock %}
+{% block title %}Acasă - Movie App{% endblock %}
 
 {% block header_content %}
     <form class="search-form" method="get" action="{{ url_for('search') }}">
@@ -12,24 +12,52 @@
 
 {% block content %}
 <main>
-   <!-- Secțiunea Recomandări -->
-<section class="recommendations-section">
-    <h2>Recomandări</h2>
-    <div class="recommended-movies">
-        {% for movie in recommended_movies %}
-        <div class="recommended-movie-item">
-            <a href="{{ url_for('movie_detail', movie_id=movie[0]) }}"> <!-- Link to movie detail -->
-                <img src="https://image.tmdb.org/t/p/w200{{ movie[2] }}" alt="{{ movie[1] }}">
-                <p>{{ movie[1] }}</p>
-            </a>
+    <!-- Collaborative Filtering Recommendations -->
+    {% if recommended_movies %}
+    <section class="recommendations-section">
+        <h2>Recomandări(Collaborative) pentru tine</h2>
+        <div class="recommended-movies">
+            {% for movie in recommended_movies %}
+            <div class="recommended-movie-item">
+                <a href="{{ url_for('movie_detail', movie_id=movie[0]) }}">
+                    <img src="https://image.tmdb.org/t/p/w200{{ movie[2] }}" alt="{{ movie[1] }}">
+                    <p>{{ movie[1] }}</p>
+                </a>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
+    </section>
+    {% endif %}
+
+    <!-- Content-Based Recommendations -->
+    {% if content_based_recommended_movies %}
+    <section class="recommendations-section">
+        <h2>Recomandări pe baza preferințelor tale</h2>
+        <div class="recommended-movies">
+            {% for movie in content_based_recommended_movies %}
+            <div class="recommended-movie-item">
+                <a href="{{ url_for('movie_detail', movie_id=movie[0]) }}">
+                    <img src="https://image.tmdb.org/t/p/w200{{ movie[2] }}" alt="{{ movie[1] }}">
+                    <p>{{ movie[1] }}</p>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Sort Options -->
+    <div class="sort-options">
+        <a href="{{ url_for('index', sort_by='release_date') }}" class="{{ 'active' if sort_by == 'release_date' else '' }}">
+            Filme Noi
+        </a> |
+        <a href="{{ url_for('index', sort_by='popularity') }}" class="{{ 'active' if sort_by == 'popularity' else '' }}">
+            Filme Populare
+        </a>
     </div>
-</section>
 
-
-  
-    <!-- Listă de Filme -->
+    <!-- Display Movies Based on Sorting -->
+    <h2>{{ 'Filme Noi' if sort_by == 'release_date' else 'Filme Populare' }}</h2>
     <div class="horizontal-movie-list">
         {% for movie in movies %}
         <div class="movie-item">
@@ -44,20 +72,21 @@
         {% endfor %}
     </div>
 
-    <!-- Paginare -->
+    <!-- Pagination -->
     <div class="pagination">
         {% if page > 1 %}
-        <a href="/?page={{ page - 1 }}">Pagina anterioară</a>
+        <a href="{{ url_for('index', page=page - 1, sort_by=sort_by) }}">Pagina anterioară</a>
         {% endif %}
         <span>Pagina {{ page }} din {{ total_pages }}</span>
         {% if page < total_pages %}
-        <a href="/?page={{ page + 1 }}">Pagina următoare</a>
+        <a href="{{ url_for('index', page=page + 1, sort_by=sort_by) }}">Pagina următoare</a>
         {% endif %}
 
-        <!-- Formular pentru navigare directă la o pagină -->
+        <!-- Go to Page Form -->
         <form method="get" action="{{ url_for('index') }}" class="goto-page-form">
             <label for="goto-page">Du-te la pagina:</label>
             <input type="number" name="page" id="goto-page" min="1" max="{{ total_pages }}" required>
+            <input type="hidden" name="sort_by" value="{{ sort_by }}">
             <button type="submit">Go</button>
         </form>
     </div>

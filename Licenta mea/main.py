@@ -37,17 +37,19 @@ def create_database():
             overview TEXT,
             release_date TEXT,
             genres TEXT,
+            popularity,
             trailer TEXT
         )
     ''')
-    # Create users table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             email TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
-            description TEXT,
+            age INTEGER,
+            occupation TEXT,
+            sex TEXT CHECK(sex IN ('M', 'F')),
             address TEXT
         )
     ''')
@@ -59,6 +61,15 @@ def create_database():
             movie_id INTEGER NOT NULL,
             rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
             UNIQUE(user_id, movie_id),
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY(movie_id) REFERENCES movies(id) ON DELETE CASCADE
+        )
+    ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_selected_movies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            movie_id INTEGER NOT NULL,
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
             FOREIGN KEY(movie_id) REFERENCES movies(id) ON DELETE CASCADE
         )
@@ -115,27 +126,32 @@ def get_hybrid_recommendations(user_id, movie_id, top_n=7):
 # Collaborative Filtering Model Initialization
 def initialize_collaborative_filtering():
     global algo, trainset
-    
+
     # Connect to the database and read the ratings
     conn = sqlite3.connect('tmdb_movies.db')
     ratings_df = pd.read_sql_query('SELECT user_id, movie_id, rating FROM ratings', conn)
     conn.close()
 
-    # Check if ratings data is available
+    # Filter ratings to include only those with a rating of 3 or higher
+    ratings_df = ratings_df[ratings_df['rating'] >= 3]
+
+    # Check if filtered ratings data is available
     if ratings_df.empty:
-        print("Ratings data is empty. No data available to train the model.")
+        print("No ratings of 3 or higher are available to train the model.")
+        trainset, algo = None, None  # Ensure they are None if initialization fails
         return
     else:
-        print(f"Ratings data loaded: {ratings_df.shape[0]} records")
+        print(f"Filtered ratings data loaded: {ratings_df.shape[0]} records (rating >= 3)")
 
-    # Create a Surprise dataset
+    # Create a Surprise dataset with the filtered ratings
     try:
         reader = Reader(rating_scale=(1, 5))
         data = Dataset.load_from_df(ratings_df[['user_id', 'movie_id', 'rating']], reader)
         trainset = data.build_full_trainset()
-        print("Dataset successfully created and trainset built.")
+        print("Dataset successfully created and trainset built with ratings >= 3.")
     except Exception as e:
         print(f"Error creating dataset: {e}")
+        trainset, algo = None, None
         return
 
     # Train the SVD algorithm
@@ -145,9 +161,18 @@ def initialize_collaborative_filtering():
         print("Collaborative filtering model trained successfully.")
     except Exception as e:
         print(f"Error training the collaborative filtering model: {e}")
+        trainset, algo = None, None
+
 
 # Get Collaborative Filtering Recommendations for a User
-def get_collaborative_filtering_recommendations(user_id, top_n=7):
+def get_collaborative_filtering_recommendations(user_id, top_n=10):
+    global trainset, algo
+
+    # Check if trainset and algo are initialized
+    if trainset is None or algo is None:
+        print("Collaborative filtering model is not initialized.")
+        return []
+
     testset = trainset.build_anti_testset()
     testset = filter(lambda x: x[0] == user_id, testset)
     predictions = algo.test(testset)
@@ -156,12 +181,28 @@ def get_collaborative_filtering_recommendations(user_id, top_n=7):
     if not predictions:
         print(f"No predictions for user {user_id}")
     else:
-        predictions.sort(key=lambda x: x.est, reverse=True)
-        recommendations = [prediction.iid for prediction in predictions[:top_n]]
-        print(f"Recommendations for user {user_id}: {recommendations}")
+        # Filter and sort predictions based on estimated ratings
+        filtered_predictions = [prediction for prediction in predictions if prediction.est >= 3]
+        
+        # Debugging: Print out filtered predictions with their estimated ratings
+        print(f"All predictions for user {user_id}:")
+        for prediction in predictions:
+            print(f"Movie ID: {prediction.iid}, Estimated Rating: {prediction.est}")
+        
+        print(f"Filtered predictions (rating >= 3) for user {user_id}:")
+        for prediction in filtered_predictions:
+            print(f"Movie ID: {prediction.iid}, Estimated Rating: {prediction.est}")
+
+        # Sort filtered predictions by estimated rating in descending order
+        filtered_predictions.sort(key=lambda x: x.est, reverse=True)
+
+        # Get top_n recommendations with rating >= 3
+        recommendations = [prediction.iid for prediction in filtered_predictions[:top_n]]
+        print(f"Final Recommendations for user {user_id} (rating >= 3): {recommendations}")
         return recommendations
 
     return []
+
 
 # Decorator to require login
 def login_required(f):
@@ -184,6 +225,19 @@ def get_genre_mapping():
     data = response.json()
     genres = {genre['id']: genre['name'] for genre in data.get('genres', [])}
     return genres
+# Function to fetch the actors of a movie from TMDb
+def get_actors(movie_id):
+    url = f'https://api.themoviedb.org/3/movie/{movie_id}/credits?api_key={TMDB_API_KEY}'
+    response = requests.get(url)
+    if response.status_code != 200:
+        print(f"Error fetching actors for movie ID {movie_id}: {response.status_code}")
+        return []
+
+    data = response.json()
+    cast = data.get('cast', [])
+    actors = [member['name'] for member in cast if member['known_for_department'] == 'Acting']
+    return ', '.join(actors)
+
 
 # Function to get trailer URL
 def get_trailer_url(movie_id):
@@ -226,15 +280,15 @@ def fetch_and_save_movies(page=1, genre_mapping=None):
         genre_ids = movie.get('genre_ids', [])
         genres_list = [genre_mapping.get(genre_id, '') for genre_id in genre_ids]
         genres = ', '.join(filter(None, genres_list))
-
+        popularity = movie.get('popularity', 0)  # Default to 0 if popularity is missing
         # Fetch trailer URL
         trailer_url = None
         # print(f"Trailer URL for '{movie['title']}': {trailer_url}")
 
         try:
             cursor.execute('''
-                INSERT INTO movies (id, title, poster_path, overview, release_date, genres, trailer)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO movies (id, title, poster_path, overview, release_date, genres, trailer,popularity)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 movie_id,
                 movie['title'],
@@ -242,6 +296,7 @@ def fetch_and_save_movies(page=1, genre_mapping=None):
                 movie.get('overview', ''),
                 movie.get('release_date', ''),
                 genres,
+                popularity,
                 trailer_url
             ))
             new_movies += 1
@@ -294,17 +349,57 @@ def update_movies(total_pages=5):
     for page in range(1, total_pages + 1):
         fetch_and_save_movies(page, genre_mapping)
 
-# Registration route
+# Define relevant genres with TMDb genre IDs
+relevant_genres = {
+    "Action": 28,
+    "Drama": 18,
+    "Adventure": 12,
+    "Sci-Fi": 878,
+    "Thriller": 53,
+    "Comedy": 35,
+    "Horror": 27,
+    "Romance": 10749
+}
+
+
+def fetch_popular_movies_by_genre(genre_id, limit=5):
+    """
+    Fetch popular movies for a specific genre from TMDb.
+
+    Args:
+    - genre_id (int): The ID of the genre on TMDb.
+    - limit (int): Number of top movies to return.
+
+    Returns:
+    - list of tuples: Each tuple contains (movie_id, title, poster_path).
+    """
+    url = f'https://api.themoviedb.org/3/discover/movie?api_key={TMDB_API_KEY}&with_genres={genre_id}&sort_by=popularity.desc'
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        print(f"Error fetching movies for genre ID {genre_id}: {response.status_code}")
+        return []
+
+    data = response.json()
+    movies = data.get('results', [])
+    
+    # Extract only the top 'limit' movies with necessary details
+    popular_movies = [(movie['id'], movie['title'], movie['poster_path']) for movie in movies[:limit]]
+    return popular_movies
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        # Capture user information from the form
         name = request.form['name'].strip()
         email = request.form['email'].strip()
         password = request.form['password']
-        description = request.form['description'].strip()
+        age = request.form.get('age')
+        occupation = request.form.get('occupation')
+        sex = request.form.get('sex')
         address = request.form['address'].strip()
+        selected_movies = request.form.getlist('selected_movies')  # Get selected movies from form
 
-        # Hash the password
         hashed_password = generate_password_hash(password)
 
         conn = sqlite3.connect('tmdb_movies.db')
@@ -312,23 +407,40 @@ def register():
 
         # Check if email already exists
         cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
-        existing_user = cursor.fetchone()
-        if existing_user:
+        if cursor.fetchone():
             flash('Email already registered. Please log in.', 'warning')
+            conn.close()
             return redirect(url_for('login'))
 
-        # Insert new user into database
+        # Insert user into the database
         cursor.execute('''
-            INSERT INTO users (name, email, password, description, address)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (name, email, hashed_password, description, address))
+            INSERT INTO users (name, email, password, age, occupation, sex, address)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (name, email, hashed_password, age, occupation, sex, address))
+        user_id = cursor.lastrowid  # Get the newly created user's ID
+
+        # Store selected movies for the user
+        for movie_id in selected_movies:
+            cursor.execute('''
+                INSERT INTO user_selected_movies (user_id, movie_id)
+                VALUES (?, ?)
+            ''', (user_id, movie_id))
+
         conn.commit()
         conn.close()
 
         flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('login'))
-    else:
-        return render_template('register.html')
+
+    # Fetch popular movies by genre from TMDb
+    genre_movies = {}
+    for genre_name, genre_id in relevant_genres.items():
+        genre_movies[genre_name] = fetch_popular_movies_by_genre(genre_id, limit=5)
+
+    return render_template('register.html', genre_movies=genre_movies)
+
+
+
 
 # Login route
 @app.route('/login', methods=['GET', 'POST'])
@@ -361,11 +473,55 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
+
+def get_content_based_recommendations_for_user(user_id, top_n=10):
+    global movies_df, similarity
+
+    # Ensure the similarity matrix is computed
+    if similarity is None or movies_df is None:
+        compute_similarity()
+        if similarity is None or movies_df is None:
+            return []
+
+    # Connect to the database and get user's selected movies
+    conn = sqlite3.connect('tmdb_movies.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT movie_id FROM user_selected_movies WHERE user_id = ?', (user_id,))
+    selected_movie_ids = [row[0] for row in cursor.fetchall()]
+    conn.close()
+
+    if not selected_movie_ids:
+        return []
+
+    # Get indices of selected movies
+    selected_indices = movies_df[movies_df['id'].isin(selected_movie_ids)].index.tolist()
+
+    if not selected_indices:
+        return []
+
+    # Calculate similarity scores
+    similarity_scores = similarity[selected_indices].mean(axis=0)
+
+    # Get indices of movies sorted by similarity scores
+    sorted_indices = similarity_scores.argsort()[::-1]
+
+    # Exclude movies already selected by the user
+    recommended_indices = [i for i in sorted_indices if movies_df.iloc[i]['id'] not in selected_movie_ids]
+
+    # Get top_n recommendations
+    top_recommended_indices = recommended_indices[:top_n]
+
+    # Return the movie IDs of the recommended movies
+    recommended_movie_ids = movies_df.iloc[top_recommended_indices]['id'].tolist()
+    return recommended_movie_ids
+
+
 @app.route('/')
 @login_required
 def index():
     try:
         page = int(request.args.get('page', 1))
+        sort_by = request.args.get('sort_by', 'release_date')  # Default is 'release_date'
     except ValueError:
         flash('Invalid page number.', 'danger')
         return redirect(url_for('index'))
@@ -375,6 +531,8 @@ def index():
 
     conn = sqlite3.connect('tmdb_movies.db')
     cursor = conn.cursor()
+    
+    # Calculate total pages based on the number of movies
     cursor.execute('SELECT COUNT(*) FROM movies')
     total_movies = cursor.fetchone()[0]
     total_pages = (total_movies // per_page) + (1 if total_movies % per_page > 0 else 0)
@@ -382,21 +540,34 @@ def index():
     if page < 1 or page > total_pages:
         flash(f'Page {page} does not exist. Please choose a number between 1 and {total_pages}.', 'warning')
         conn.close()
-        return redirect(url_for('index'))
+        return redirect(url_for('index', sort_by=sort_by))
 
-    cursor.execute('''
-        SELECT id, title, poster_path, overview, release_date, genres
-        FROM movies
-        ORDER BY release_date DESC
-        LIMIT ? OFFSET ?
-    ''', (per_page, offset))
+    # Choose ordering based on sort_by parameter
+    if sort_by == 'popularity':
+        cursor.execute('''
+            SELECT id, title, poster_path, overview, release_date, genres, popularity
+            FROM movies
+            ORDER BY popularity DESC
+            LIMIT ? OFFSET ?
+        ''', (per_page, offset))
+    else:  # sort_by == 'release_date'
+        cursor.execute('''
+            SELECT id, title, poster_path, overview, release_date, genres
+            FROM movies
+            ORDER BY release_date DESC
+            LIMIT ? OFFSET ?
+        ''', (per_page, offset))
+
     movies = cursor.fetchall()
 
     user_id = session.get('user_id')
     recommended_movies = []
+    content_based_recommended_movies = []
+
+    # Collaborative Filtering Recommendations
     if user_id and algo is not None:
         recommended_movie_ids = get_collaborative_filtering_recommendations(user_id, top_n=7)
-        print(f"Recommended movie IDs for user {user_id}: {recommended_movie_ids}")  # Debug: Printează recomandările
+        print(f"Collaborative Filtering Recommended movie IDs for user {user_id}: {recommended_movie_ids}")  # Debugging
 
         if recommended_movie_ids:
             cursor.execute(f'''
@@ -405,14 +576,38 @@ def index():
                 WHERE id IN ({','.join('?' * len(recommended_movie_ids))})
             ''', recommended_movie_ids)
             recommended_movies = cursor.fetchall()
-            print(f"Recommended movies: {recommended_movies}")  # Debug: Printează filmele recomandate
+            print(f"Collaborative Filtering Recommended movies: {recommended_movies}")  # Debugging
+
+    # Content-Based Recommendations
+    if user_id:
+        content_based_movie_ids = get_content_based_recommendations_for_user(user_id, top_n=14)
+        print(f"Content-Based Recommended movie IDs for user {user_id}: {content_based_movie_ids}")  # Debugging
+
+        if content_based_movie_ids:
+            cursor.execute(f'''
+                SELECT id, title, poster_path
+                FROM movies
+                WHERE id IN ({','.join('?' * len(content_based_movie_ids))})
+            ''', content_based_movie_ids)
+            content_based_recommended_movies = cursor.fetchall()
+            print(f"Content-Based Recommended movies: {content_based_recommended_movies}")  # Debugging
 
     conn.close()
 
     user_name = session.get('user_name')
 
-    return render_template('home.html', movies=movies, page=page, total_pages=total_pages, user_name=user_name,
-                           recommended_movies=recommended_movies)
+    return render_template(
+        'home.html',
+        movies=movies,
+        page=page,
+        total_pages=total_pages,
+        user_name=user_name,
+        recommended_movies=recommended_movies,
+        content_based_recommended_movies=content_based_recommended_movies,
+        sort_by=sort_by
+    )
+
+
 
 
 # Search route
