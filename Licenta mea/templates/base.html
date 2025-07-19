@@ -2,47 +2,209 @@
 <html>
 <head>
     <title>{% block title %}Movie App{% endblock %}</title>
+ 
+
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
     <!-- Include Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- Include any necessary scripts for autocomplete -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <style>
+       /* Welcome overlay */
+    #welcome-overlay {
+      position: fixed;
+      top:0; left:0; right:0; bottom:0;
+      background: rgba(0,0,0,.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--light);
+      font-size: 1.75rem;
+      text-align: center;
+      opacity: 1;
+      transition: opacity 1s ease-in-out;
+      z-index: 10;
+    }
+    #welcome-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+      nav ul {
+    list-style: none;
+    display: flex;
+    justify-content: flex-end;   /* push items to the right */
+    align-items: center;
+    gap: 0.5rem;                 /* slightly tighter spacing */
+    margin: 0;                   /* remove any default padding/margin */
+    padding: 0;
+  }
+
+  nav a,
+  nav button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;                 /* icon-text gap a bit smaller */
+    padding: 0.25rem 0.5rem;     /* less bulky buttons */
+    background: var(--dark);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: var(--light);
+    text-decoration: none;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, border 0.2s, transform 0.1s;
+    font-size: 0.8rem;           /* smaller font */
+  }
+
+  nav a:hover,
+  nav button:hover {
+    background: #333;
+    border-color: var(--primary);
+    transform: translateY(-1px);
+  }
+
+  /* your existing accent button stays the same */
+  nav .btn-network {
+    background: var(--primary);
+    font-size: 0.85rem;          /* you can tweak this independently */
+  }
+  nav .btn-network:hover {
+    background: #d81b60;
+  }
+
+    </style>
 </head>
+   <h1 id="animated-title" data-full="Welcome!🎬✨🎬✨🎬✨🎬✨🎬✨🎬✨🎬✨🎬✨🎬✨">​</h1>
 <body>
-  <!-- base.html -->
-<header>
+  {% if session.get('user_name') %}
+    <div id="welcome-overlay">
+      Welcome, <strong>{{ session['user_name'] }}</strong><br>
+      Enjoy your movies!
+    </div>
+  {% endif %}
+
+  <header>
     <h1><a href="{{ url_for('index') }}">Movie App</a></h1>
     <nav>
-        <ul>
-            {% if session.get('user_id') %}
-                <li><span>Bun venit, {{ session.get('user_name') }}!</span></li>
-                <li><a href="{{ url_for('logout') }}">Logout</a></li>
-            {% else %}
-                <li><a href="{{ url_for('login') }}">Login</a></li>
-                <li><a href="{{ url_for('register') }}">Register</a></li>
-            {% endif %}
-        </ul>
+      <ul>
+        {% if session.get('user_name') %}
+          <li><span>👋 {{ session['user_name'] }}</span></li>
+          <li><a href="{{ url_for('profile') }}"><i class="fas fa-user-circle"></i> Profile</a></li>
+          <li><a href="{{ url_for('user_recommendation') }}" class="btn-network">
+                <i class="fas fa-project-diagram"></i> Network
+              </a></li>
+          <li><a href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+        {% else %}
+          <li><a href="{{ url_for('login') }}"><i class="fas fa-sign-in-alt"></i> Login</a></li>
+          <li><a href="{{ url_for('register') }}"><i class="fas fa-user-plus"></i> Register</a></li>
+        {% endif %}
+      </ul>
     </nav>
     {% block header_content %}{% endblock %}
-</header>
+  </header>
 
+  <div class="container">
     {% with messages = get_flashed_messages(with_categories=True) %}
       {% if messages %}
         <ul class="flashes">
-          {% for category, message in messages %}
-            <li class="{{ category }}">{{ message }}</li>
+          {% for category, msg in messages %}
+            <li class="{{ category }}">{{ msg }}</li>
           {% endfor %}
         </ul>
       {% endif %}
     {% endwith %}
 
-    <div class="container">
-        {% block content %}{% endblock %}
-    </div>
+    {% block content %}{% endblock %}
+  </div>
 
-    <footer>
-        <p>&copy; {{ current_year }} Movie Database</p>
-    </footer>
+  <footer>
+    &copy; {{ current_year }} Movie Database - Made by Banu Ion
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const ov = document.getElementById('welcome-overlay');
+      if (!ov) return;
+      // after 2s fade out
+      setTimeout(() => ov.classList.add('hidden'), 2000);
+    });
+  </script>
+  <script>
+document.addEventListener('DOMContentLoaded', () => {
+  // grab the full title that you wrote in your <title>…</title>
+  const fullTitle = document.title;
+  let index     = 0;
+  let forward   = true;
+
+  // clear it
+  document.title = '';
+
+  function tick() {
+    // set the title to the first `index` chars
+    document.title = fullTitle.slice(0, index);
+
+    if (forward) {
+      index++;
+      // once we've fully typed it, pause then reverse
+      if (index > fullTitle.length) {
+        forward = false;
+        setTimeout(tick, 800);
+        return;
+      }
+    } else {
+      index--;
+      // once it's erased, pause then start typing again
+      if (index < 0) {
+        forward = true;
+        setTimeout(tick, 500);
+        return;
+      }
+    }
+
+    // adjust this to control speed (milliseconds)
+    setTimeout(tick, 150);
+  }
+
+  // kick it off
+  tick();
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const el        = document.getElementById('animated-title');
+  const fullText  = el.dataset.full;
+  let   idx       = 0;
+  let   forward   = true;
+
+  // start blank
+  el.textContent = '';
+
+  function tick() {
+    el.textContent = fullText.slice(0, idx);
+
+    if (forward) {
+      idx++;
+      if (idx > fullText.length) {
+        forward = false;
+        setTimeout(tick, 800);
+        return;
+      }
+    } else {
+      idx--;
+      if (idx < 0) {
+        forward = true;
+        setTimeout(tick, 500);
+        return;
+      }
+    }
+    setTimeout(tick, 150);
+  }
+
+  tick();
+});
+</script>
+
+  {% block extra_scripts %}{% endblock %}
 </body>
 </html>

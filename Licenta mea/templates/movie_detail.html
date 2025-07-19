@@ -1,124 +1,214 @@
-<!-- movie_detail.html -->
+{# templates/movie_detail.html #}
 {% extends 'base.html' %}
+{% block title %}{{ movie[1] }} – Movie App{% endblock %}
 
-{% block title %}{{ movie[1] }} - Movie App{% endblock %}
+{% macro grid(lst) -%}
+  {% if lst %}
+    <div class="grid">
+      {% for m in lst %}
+        {% set id  = m[0] %}
+        {% set ttl = m[1] %}
+        {% set pth = m[2] or '' %}
+        <a class="tile" href="{{ url_for('movie_detail', movie_id=id) }}">
+          <img src="{{ pth and 'https://image.tmdb.org/t/p/w200' ~ pth
+                       or url_for('static',filename='no_image_available.png') }}">
+          <span>{{ ttl }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}<p>No data</p>{% endif %}
+{%- endmacro %}
 
 {% block content %}
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        <ul class="flashes">
-          {% for category, message in messages %}
-            <li class="flash {{ category }}">{{ message }}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
+<style>
+/* ============ BASIC LAYOUT ============ */
+body{color:#e0e0e0;background:#181818;font-family:system-ui,Arial}
+.movie-hdr{display:flex;flex-wrap:wrap;gap:1rem;margin-bottom:1.3rem}
+.movie-hdr img{width:200px;border-radius:6px;box-shadow:0 4px 12px #0008}
+.movie-hdr .info{flex:1;min-width:250px}
+.movie-hdr .meta{color:#ccc;margin:.4rem 0}
+.movie-hdr .overview{margin-top:.8rem;text-align:justify;line-height:1.45;font-size:.95rem}
+.trailer{width:100%;max-width:480px;height:270px;border:0;border-radius:6px;margin-top:.7rem}
 
-    <div class="container clearfix">
-        {% if movie[2] %}
-            <img src="https://image.tmdb.org/t/p/w500{{ movie[2] }}" alt="{{ movie[1] }}" class="movie-poster">
-        {% endif %}
-        <div class="movie-details">
-            <h2>{{ movie[1] }} ({{ movie[4][:4] }})</h2> <!-- Year of Release -->
-            <p><strong>Release Date:</strong> {{ movie[4] }}</p>
-            <p><strong>Genres:</strong> {{ movie[5] }}</p>
-            <p>{{ movie[3] }}</p> <!-- Overview -->
-        </div>
-        {% if trailer_url %}
-            <div class="trailer">
-                <h2>Trailer</h2>
-                <iframe width="560" height="315" src="{{ trailer_url }}" frameborder="0" allowfullscreen></iframe>
-            </div>
-        {% else %}
-            <p>Trailer not available.</p>
-        {% endif %}
-        <div style="clear: both;"></div>
-        <!-- Back Button -->
-       
+/* === tabs === */
+.tabs,.subtabs{display:flex;flex-wrap:wrap;gap:.4rem;margin:1rem 0}
+.tabs button,.subtabs button{padding:.45rem .9rem;border:0;border-radius:4px;cursor:pointer;background:#303030;color:#fff}
+.tabs button.active,.subtabs button.active{background:#e91e63}
+.pane,.subpane{display:none;margin-bottom:1.5rem}
+.grid{display:flex;flex-wrap:wrap;gap:.6rem}
+.tile{width:110px;text-align:center;text-decoration:none;color:#d0d0d0;transition:transform .15s}
+.tile img{width:100%;border-radius:4px;box-shadow:0 2px 6px #0007}
+.tile:hover{transform:scale(1.06)}               /* ← clipire la hover */
+
+.card{background:#202020;border-radius:6px;padding:1rem}
+.stars i{color:#ffc107;margin-right:.05rem}
+
+/* watch links */
+.watch ul{columns:2;margin:0;padding:0}
+.watch li{list-style:none}
+.back{display:inline-block;margin-top:2rem;color:#0af;text-decoration:none}
+</style>
+
+<!-- ===== HEADER ===== -->
+<header class="movie-hdr">
+  {% if movie[2] %}<img src="https://image.tmdb.org/t/p/w300{{ movie[2] }}" alt="{{ movie[1] }}">{% endif %}
+  <div class="info">
+    <h1>{{ movie[1] }} <small>({{ movie[4][:4] }})</small></h1>
+    <p class="meta">Actors: {{ actors }} &nbsp;|&nbsp; Genres: {{ movie[5] }} &nbsp;|&nbsp; Release: {{ movie[4] }}</p>
+    {% if trailer_url %}<iframe class="trailer" src="{{ trailer_url }}" allowfullscreen></iframe>{% endif %}
+    <p class="overview">{{ movie[3] }}</p>
+  </div>
+</header>
+
+<!-- ===== MAIN TABS ===== -->
+<nav class="tabs" id="tabs">
+  <button data-k="rating" class="active">⭐ Rating</button>
+  <button data-k="poster">🖼️ Poster</button>
+  <button data-k="voice">🎙️ Voice</button>
+  <button data-k="review">✍️ Reviews</button>
+  <button data-k="recs">📊 Algoritmi</button>
+</nav>
+
+<!-- ===== PANE  Rating ===== -->
+<section id="pane-rating" class="pane" style="display:block">
+  {% set avg = avg_rating or 0 %}
+  <h3>Average: {{ avg_rating or 'n/a' }}</h3>
+  <p class="stars">{% for i in range(1,6) %}<i class="fa fa-star {{ 'fas' if avg>=i else 'far' }}"></i>{% endfor %}</p>
+
+  <div class="card">
+    <h4>Votează:</h4>
+    <div id="rate-stars" class="stars">{% for i in range(1,6) %}
+      <i class="fa fa-star {{ 'fas' if user_rating and user_rating>=i else 'far' }}" data-v="{{ i }}"></i>{% endfor %}
     </div>
+    <small id="rate-msg"></small>
+  </div>
+</section>
 
-   <!-- Rating Section -->
-<div class="rating-section">
-    <h2>Rating</h2>
-    <div class="average-rating">
-        <p><strong>Average Rating:</strong></p>
-        <div class="stars">
-            {% set avg = avg_rating if avg_rating is not none else 0 %}
-            {% for i in range(1, 6) %}
-                <i class="fa-star {% if avg >= i %}fas{% else %}far{% endif %}"></i>
-            {% endfor %}
-        </div>
-        <p>{{ avg_rating if avg_rating else "Not yet rated" }}</p>
-    </div>
-    
+<!-- ===== PANE  Poster ===== -->
+<section id="pane-poster" class="pane">
+  <h3>Analizează un poster</h3>
+  <form id="poster-form" enctype="multipart/form-data">
+    <input type="hidden" name="movie_id" value="{{ movie[0] }}">
+    <input type="file" name="poster_image" required>
+    <button>Analizează</button>
+  </form>
+  <div id="poster-box"></div>
+</section>
 
-    <div class="user-rating">
-        <p><strong>Your Rating:</strong></p>
-        <div class="stars">
-            {% for i in range(1, 6) %}
-                <i class="fa-star {% if user_rating and user_rating >= i %}fas{% else %}far{% endif %}"></i>
-            {% endfor %}
-        </div>
-        <p>{{ user_rating if user_rating else "No rating yet" }}</p>
-    </div>
+<!-- ===== PANE  Voice ===== -->
+<section id="pane-voice" class="pane">
+  <h3>Voice → Recomandări</h3>
+  <button id="v-start">Start</button>
+  <button id="v-stop" disabled>Stop & analyse</button>
+  <p id="v-status">Ready.</p>
+  <p><strong>Transcript:</strong> <span id="v-txt"></span></p>
+  <div id="v-recs"></div>
+</section>
 
-    <!-- Rating Form -->
-    <form method="post" action="{{ url_for('movie_detail', movie_id=movie[0]) }}">
-        <label for="rating">Rate this movie:</label><br>
-        <select name="rating" id="rating" required>
-            <option value="">Select a rating</option>
-            {% for i in range(1, 6) %}
-                <option value="{{ i }}" {% if user_rating == i %}selected{% endif %}>{{ i }}</option>
-            {% endfor %}
-        </select><br><br>
-        <button type="submit">Submit Rating</button>
-    </form>
-</div>
+<!-- ===== PANE  Reviews ===== -->
+<section id="pane-review" class="pane">
+  <h3>Lasă un review</h3>
+  <textarea id="rev-text" rows="4" placeholder="scrie aici…"></textarea>
+  <button id="rev-send">Trimite</button> <small id="rev-msg"></small>
 
+  <h4>Review‑uri:</h4>
+  <div id="rev-list">
+    {% for rv,s,g,u in reviews %}
+      <div class="card"><p><strong>{{ u }}</strong> – {{ s }}/{{ g }}</p><p>{{ rv }}</p></div>
+    {% endfor %}
+  </div>
+</section>
 
-    <!-- Content-Based Recommended Movies Section -->
-    <h2>Recommended Movies (Based on Content)</h2>
-    {% if content_based_recommended_movies %}
-        <div class="recommended-movies">
-            {% for rec_movie in content_based_recommended_movies %}
-                <div class="recommended-movie-item">
-                    <a href="{{ url_for('movie_detail', movie_id=rec_movie[0]) }}">
-                        {% if rec_movie[2] %}
-                            <img src="https://image.tmdb.org/t/p/w200{{ rec_movie[2] }}" alt="{{ rec_movie[1] }}">
-                        {% else %}
-                            <img src="{{ url_for('static', filename='no_image_available.png') }}" alt="No Image Available">
-                        {% endif %}
-                        <p>{{ rec_movie[1] }}</p>
-                    </a>
-                </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <p>No content-based recommendations available.</p>
-    {% endif %}
+<!-- ===== PANE  Algoritmi ===== -->
+<section id="pane-recs" class="pane">
+  <nav class="subtabs" id="subtabs">
+    <button data-s="bert" class="active">BERT</button>
+    <button data-s="svd">Hybrid SVD</button>
+    <button data-s="cont">Content</button>
+    <button data-s="hyb">Hybrid Clicks</button>
+    <button data-s="add">Actori+keywords+gen</button>
+    <button data-s="hmm">Hybrid_Movies</button>
+  </nav>
+  <div id="sub-bert"  class="subpane" style="display:block">{{ grid(bert_recommended_movies) }}</div>
+  <div id="sub-svd"   class="subpane">{{ grid(hybrid_svd_recommended_movies) }}</div>
+  <div id="sub-cont"  class="subpane">{{ grid(content_based_recommended_movies) }}</div>
+  <div id="sub-hyb"   class="subpane">{{ grid(hybrid_recommendations) }}</div>
+  <div id="sub-add"   class="subpane">{{ grid(advanced_content_movies) }}</div>
+  <div id="sub-hmm"   class="subpane">{{ grid(hybrid_recommended_movies) }}</div>
+</section>
 
-    <!-- Hybrid Recommended Movies Section -->
-    <h2>Recommended Movies for You (Hybrid)</h2>
-    {% if hybrid_recommended_movies %}
-        <div class="recommended-movies">
-            {% for rec_movie in hybrid_recommended_movies %}
-                <div class="recommended-movie-item">
-                    <a href="{{ url_for('movie_detail', movie_id=rec_movie[0]) }}">
-                        {% if rec_movie[2] %}
-                            <img src="https://image.tmdb.org/t/p/w200{{ rec_movie[2] }}" alt="{{ rec_movie[1] }}">
-                        {% else %}
-                            <img src="{{ url_for('static', filename='no_image_available.png') }}" alt="No Image Available">
-                        {% endif %}
-                        <p>{{ rec_movie[1] }}</p>
-                    </a>
-                    
-                </div>
-            {% endfor %}
-            
-        </div>
-    {% else %}
-        <p>No hybrid recommendations available.</p>
+<!-- ===== WATCH ===== -->
+<section class="watch">
+  <h3>Unde vezi gratuit</h3>
+  <ul>{% for n,u in watch_links.items() %}<li><a target="_blank" href="{{ u }}">{{ n }}</a></li>{% endfor %}</ul>
+</section>
 
-    {% endif %}
-    <p><a href="javascript:history.back()" class="back-button">&#8592; Back</a></p>
+<a class="back" href="javascript:history.back()">↩ Înapoi</a>
+
+<!-- ============  JS  ============ -->
+<script>
+const MOVIE_ID = {{ movie[0] }};
+
+/* ------- TAB LOGIC -------- */
+document.querySelectorAll('#tabs button').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x==b));
+    const k=b.dataset.k;document.querySelectorAll('.pane').forEach(p=>p.style.display=(p.id==='pane-'+k)?'block':'none');};
+});
+document.querySelectorAll('#subtabs button').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('#subtabs button').forEach(x=>x.classList.toggle('active',x==b));
+    const k=b.dataset.s;document.querySelectorAll('.subpane').forEach(p=>p.style.display=(p.id==='sub-'+k)?'block':'none');};
+});
+
+/* ------- RATING AJAX ------- */
+let sel=0,msg=document.getElementById('rate-msg');
+document.querySelectorAll('#rate-stars i').forEach(st=>{
+  st.onclick=async()=>{sel=+st.dataset.v;paint();msg.textContent='Salvez…';
+    const r=await fetch('/api/rate',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({movie_id:MOVIE_ID,rating:sel})});
+    msg.textContent=r.ok?'Mulţumim!':'Eroare';};
+  st.onmouseenter=()=>paint(+st.dataset.v);
+  st.onmouseleave=()=>paint(sel);
+});
+function paint(n=sel){document.querySelectorAll('#rate-stars i').forEach(i=>{
+  i.classList.toggle('fas',i.dataset.v<=n);i.classList.toggle('far',i.dataset.v>n);});}
+
+/* ------- REVIEW AJAX ------- */
+document.getElementById('rev-send').onclick=async()=>{
+  const txt=document.getElementById('rev-text').value.trim();
+  if(txt.length<4)return alert('scrie mai mult!');
+  const r=await fetch('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({movie_id:MOVIE_ID,review:txt})});
+  const j=await r.json(),m=document.getElementById('rev-msg');
+  if(r.ok){m.textContent='Salvat!';document.getElementById('rev-text').value='';
+    const div=document.createElement('div');div.className='card';
+    div.innerHTML=`<p><strong>${j.user}</strong> – ${j.sentiment}/${j.grade}</p><p>${txt}</p>`;
+    document.getElementById('rev-list').prepend(div);}else m.textContent=j.error||'Eroare';
+};
+
+/* ------- POSTER AJAX ------- */
+document.getElementById('poster-form').onsubmit=async e=>{
+  e.preventDefault();const box=document.getElementById('poster-box');box.textContent='Analizăm…';
+  const r=await fetch('{{ url_for("poster_recommend") }}',{method:'POST',body:new FormData(e.target)});
+  if(!r.ok){box.textContent='Eroare';return;}const j=await r.json();
+  let html=`<h4>${j.title}</h4><p><b>Genuri:</b> ${j.genres.join(', ')}</p><div class="grid">`;
+  j.recommendations.forEach(m=>{html+=`<a class="tile" href="/movie/${m.id}">
+    <img src="${m.poster_path?'https://image.tmdb.org/t/p/w200'+m.poster_path:'/static/no_image_available.png'}"><span>${m.title}</span></a>`});
+  box.innerHTML=html+'</div>';
+};
+
+/* ------- VOICE AJAX ------- */
+let recorder,chunks=[];const vs=document.getElementById('v-start'),vp=document.getElementById('v-stop');
+vs.onclick=async()=>{const str=await navigator.mediaDevices.getUserMedia({audio:true});
+  recorder=new MediaRecorder(str);chunks=[];recorder.ondataavailable=e=>chunks.push(e.data);
+  recorder.onstop=async()=>{document.getElementById('v-status').textContent='Uploading…';
+    const fd=new FormData();fd.append('audio_data',new Blob(chunks,{type:'audio/webm'}),'v.webm');
+    const r=await fetch('{{ url_for("voice_recommend") }}',{method:'POST',body:fd});
+    const j=await r.json();document.getElementById('v-txt').textContent=j.transcript||'[n/a]';
+    const box=document.getElementById('v-recs');box.innerHTML=j.recommendations.length?'<div class="grid"></div>':'No recs';
+    const g=box.querySelector('.grid');j.recommendations.forEach(m=>g.innerHTML+=`<a class="tile" href="/movie/${m.id}">
+      <img src="${m.poster_path?'https://image.tmdb.org/t/p/w200'+m.poster_path:'/static/no_image_available.png'}"><span>${m.title}</span></a>`);
+    vs.disabled=false;};
+  recorder.start();vs.disabled=true;vp.disabled=false;document.getElementById('v-status').textContent='Recording…';};
+vp.onclick=()=>{recorder.stop();vp.disabled=true;};
+</script>
 {% endblock %}

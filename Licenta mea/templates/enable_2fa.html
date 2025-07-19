@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+   {% extends "base.html" %}
+
+{% block title %}Activează 2FA{% endblock %}
+
+{% block content %}
+  <h1>Activează Autentificarea cu Doi Factori</h1>
+  <p>Scanează acest cod cu Google Authenticator (sau altă aplicație compatibilă), apoi introdu codul generat.</p>
+
+  <img class="qr-code" src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR code" />
+
+  <form method="POST">
+      <label for="otp_code">Cod OTP:</label>
+      <input type="text" name="otp_code" id="otp_code" required>
+      <button type="submit">Activează</button>
+  </form>
+{% endblock %}
+
+</head>
+<body>
+    <h1>Activează Autentificarea cu Doi Factori</h1>
+    <p>Scanează acest cod cu Google Authenticator (sau altă aplicație compatibilă), apoi introdu codul generat.</p>
+
+    <!-- Afișăm QR Code ca imagine inline (base64) -->
+    <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR code" />
+
+    <form method="POST">
+        <label>Cod OTP din aplicația de autentificare:</label>
+        <input type="text" name="otp_code" required>
+        <button type="submit">Activează</button>
+    </form>
+</body>
+</html>

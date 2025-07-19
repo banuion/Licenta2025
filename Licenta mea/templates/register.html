@@ -3,173 +3,193 @@
 {% block title %}Register - Movie App{% endblock %}
 
 {% block content %}
-    <h2>Register</h2>
-    <form method="post" action="{{ url_for('register') }}" class="register-form">
-        
-        <div class="form-section">
-            <label>Name:</label>
-            <input type="text" name="name" required>
-        </div>
-        
-        <div class="form-section">
-            <label>Email:</label>
-            <input type="email" name="email" required>
-        </div>
-        
-        <div class="form-section">
-            <label>Password:</label>
-            <input type="password" name="password" required>
-        </div>
-        
-        <div class="form-section">
-            <label>Age:</label>
-            <input type="number" name="age" min="18" max="100" required>
-        </div>
-        
-        <div class="form-section">
-            <label>Occupation:</label>
-            <select name="occupation" required>
-                <option value="">Select occupation</option>
-                <option value="Student">Student</option>
-                <option value="Engineer">Engineer</option>
-                <option value="Teacher">Teacher</option>
-                <option value="Developer">Developer</option>
-                <option value="Designer">Designer</option>
-                <option value="Doctor">Doctor</option>
-                <option value="Lawyer">Lawyer</option>
-                <option value="Other">Other</option>
-            </select>
-        </div>
-        
-        <div class="form-section">
-            <label>Sex:</label>
-            <select name="sex" required>
-                <option value="">Select sex</option>
-                <option value="M">Male</option>
-                <option value="F">Female</option>
-            </select>
-        </div>
-        
-        <div class="form-section">
-            <label>Address:</label>
-            <input type="text" name="address">
-        </div>
-        
-        <h3>Select Movies You Like (By Genre):</h3>
-        {% for genre, movies in genre_movies.items() %}
-            <h4>{{ genre }}</h4>
-            <div class="genre-container">
-                {% for movie in movies %}
-                    <div class="movie-card">
-                        <label>
-                            <input type="checkbox" name="selected_movies" value="{{ movie[0] }}">
-                            <img src="https://image.tmdb.org/t/p/w200{{ movie[2] }}" alt="{{ movie[1] }}">
-                            <p>{{ movie[1] }}</p>
-                        </label>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endfor %}
-        
-        <input type="submit" value="Register" class="submit-btn">
-    </form>
-
-    <p>Already have an account? <a href="{{ url_for('login') }}">Log in here</a>.</p>
-
 <style>
-    /* Basic styling for form layout */
-    .register-form {
-        max-width: 600px;
-        margin: 0 auto;
-    }
-
-    .form-section {
-        margin-bottom: 15px;
-    }
-
-    label {
-        font-weight: bold;
-    }
-
-    input[type="text"],
-    input[type="email"],
-    input[type="password"],
-    input[type="number"],
-    select {
-        width: 100%;
-        padding: 8px;
-        margin-top: 5px;
-        border: 1px solid #ccc;
-        border-radius: 5px;
-    }
-
-    h3, h4 {
-        margin-top: 40px;
-        color: #393;
-    }
-
-    /* Container for each genre's movie list */
-    .genre-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
-        margin-bottom: 20px;
-    }
-
-    /* Movie card styling */
-    .movie-card {
-        flex: 0 1 18%;
-        max-width: 150px;
-        text-align: center;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        overflow: hidden;
-        background-color: #f9f9f9;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s ease-in-out;
-    }
-
-    /* Hover effect for movie card */
-    .movie-card:hover {
-        transform: scale(1.05);
-    }
-
-    /* Checkbox and label styling */
-    .movie-card label {
-        display: block;
-        cursor: pointer;
-    }
-
-    /* Poster image styling */
-    .movie-card img {
-        width: 100%;
-        height: auto;
-        border-bottom: 1px solid #ddd;
-    }
-
-    /* Movie title styling */
-    .movie-card p {
-        font-size: 14px;
-        color: #333;
-        padding: 8px;
-        margin: 0;
-    }
-
-    /* Styling for the submit button */
-    .submit-btn {
-        width: 100%;
-        padding: 10px;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 5px;
-        cursor: pointer;
-        font-size: 16px;
-        margin-top: 20px;
-    }
-
-    .submit-btn:hover {
-        background-color: #45a049;
-    }
+  .page-background {
+    background: url('{{ url_for('static', filename='image.jpg') }}') no-repeat center center fixed;
+    background-size: cover;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  .register-card {
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 2rem 1.5rem;
+    border-radius: 8px;
+    max-width: 600px;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    color: #fff;
+  }
+  .register-card h2 {
+    margin-bottom: 1rem;
+    text-align: center;
+    font-size: 1.75rem;
+  }
+  .register-card .form-section {
+    margin-top: 1rem;
+  }
+  .register-card label {
+    display: block;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+  }
+  .register-card input,
+  .register-card select {
+    width: 100%;
+    padding: 0.6rem;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+  .genre-menu {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    margin: 1.5rem 0;
+  }
+  .genre-menu a {
+    padding: 0.4rem 0.8rem;
+    background: #e91e63;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+  }
+  .genre-menu a:hover {
+    background: #d81b60;
+  }
+  .genre-section {
+    margin-top: 1.5rem;
+  }
+  .genre-section h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    color: #e91e63;
+  }
+  .genre-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  .movie-card {
+    flex: 0 1 18%;
+    max-width: 150px;
+    text-align: center;
+    background-color: #333;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: transform 0.2s ease-in-out;
+  }
+  .movie-card:hover {
+    transform: scale(1.05);
+  }
+  .movie-card img {
+    width: 100%;
+    height: auto;
+  }
+  .movie-card p {
+    margin: 0;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    color: #fff;
+  }
+  .submit-btn {
+    width: 100%;
+    padding: 0.75rem;
+    margin-top: 1.5rem;
+    background: #4caf50;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .submit-btn:hover {
+    background: #43a047;
+  }
 </style>
+
+<div class="page-background">
+  <div class="register-card">
+    <h2>Register</h2>
+    <form method="post" action="{{ url_for('register') }}">
+      <div class="form-section">
+        <label for="name">Name</label>
+        <input id="name" name="name" type="text" required>
+      </div>
+      <div class="form-section">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required>
+      </div>
+      <div class="form-section">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required>
+      </div>
+      <div class="form-section">
+        <label for="age">Age</label>
+        <input id="age" name="age" type="number" min="18" max="100" required>
+      </div>
+      <div class="form-section">
+        <label for="occupation">Occupation</label>
+        <select id="occupation" name="occupation" required>
+          <option value="">Select occupation</option>
+          <option>Student</option><option>Engineer</option><option>Teacher</option>
+          <option>Developer</option><option>Designer</option><option>Doctor</option>
+          <option>Lawyer</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label for="sex">Sex</label>
+        <select id="sex" name="sex" required>
+          <option value="">Select sex</option>
+          <option value="M">Male</option><option value="F">Female</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label for="address">Address</label>
+        <input id="address" name="address" type="text">
+      </div>
+
+      <!-- Meniu Genuri -->
+      <div class="genre-menu">
+        {% for genre in genre_movies.keys() %}
+          <a href="#genre-{{ genre|replace(' ', '-') }}">{{ genre }}</a>
+        {% endfor %}
+      </div>
+
+      <!-- Section pe genuri -->
+      {% for genre, movies in genre_movies.items() %}
+        <div id="genre-{{ genre|replace(' ', '-') }}" class="genre-section">
+          <h4>{{ genre }}</h4>
+          <div class="genre-container">
+            {% for movie in movies %}
+              <div class="movie-card">
+                <label>
+                  <input type="checkbox" name="selected_movies" value="{{ movie[0] }}">
+                  <img src="https://image.tmdb.org/t/p/w200{{ movie[2] }}" alt="{{ movie[1] }}">
+                  <p>{{ movie[1] }}</p>
+                </label>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endfor %}
+
+      <button class="submit-btn" type="submit">Register</button>
+    </form>
+    <p style="text-align:center; margin-top:1rem;">
+      Already have an account? <a href="{{ url_for('login') }}" style="color:#e91e63;">Login here</a>
+    </p>
+  </div>
+</div>
 {% endblock %}

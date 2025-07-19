@@ -1,0 +1,310 @@
+{# templates/user_recommendation.html #}
+{% extends 'base.html' %}
+{% block title %}Reţeaua mea – Movie App{% endblock %}
+
+{% block content %}
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+<style>
+  :root{--card-w:820px;}
+  .main-card{width:var(--card-w);background:#1d1d1d;border-radius:8px;padding:1rem;color:#eee;margin:auto}
+  .nav-btn{padding:.55rem 1.2rem;margin-right:.4rem;border:0;border-radius:4px;
+           background:#333;color:#fff;cursor:pointer;font-weight:600}
+  .nav-btn.active{background:#e91e63}
+  .user-row{display:flex;align-items:center;justify-content:space-between;
+            padding:.45rem 0;border-bottom:1px solid #333;gap:.5rem}
+  .user-row:last-child{border-bottom:0}
+  .user-info{display:flex;align-items:center;gap:.6rem}
+  .poster{width:55px;border-radius:4px;object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+  textarea.msgBox{width:100%;min-height:60px;background:#292929;color:#eee;border:1px solid #444;border-radius:4px;padding:.4rem;font-family:inherit}
+  .list{margin-top:.8rem}
+  /* Container for the movie posters carousel */
+.movies-box {
+  display: flex;
+  overflow-x: auto;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  margin-left: 2.2rem; /* align under the friend-info */
+  box-sizing: border-box;
+}
+
+/* Each movie card */
+.movie-card {
+  min-width: 100px;
+  max-width: 100px;
+  background: #292929;
+  border-radius: 6px;
+  overflow: hidden;
+  text-align: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  transition: transform .2s;
+}
+.movie-card:hover {
+  transform: translateY(-4px);
+}
+.movie-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.movie-card .title {
+  font-size: 0.8rem;
+  color: #eee;
+  padding: 0.25rem 0;
+}
+.movie-card .rating {
+  font-size: 0.75rem;
+  color: #ccc;
+  padding-bottom: 0.25rem;
+}
+
+</style>
+
+<h1 style="text-align:center;margin-bottom:.6rem">👥 Reţeaua de prieteni</h1>
+
+<div style="text-align:center;margin-bottom:.8rem" id="nav">
+      
+  <button class="nav-btn active"   data-sec="rec">Recomandări</button>
+  <button class="nav-btn"          data-sec="req">Request‑uri</button>
+  <button class="nav-btn"          data-sec="friends">Prieteni</button>
+  <button class="nav-btn" data-sec="inbox">📥 Mesaje</button>
+</div>
+<div id="sec-inbox" class="main-card" style="display:none"></div>
+<div id="sec-rec"     class="main-card"></div>
+<div id="sec-req"     class="main-card" style="display:none"></div>
+<div id="sec-friends" class="main-card" style="display:none"></div>
+
+<script>
+const navBtns=[...document.querySelectorAll('.nav-btn')];
+const panes = {
+  'inbox': '#sec-inbox',
+  'rec':   '#sec-rec',
+  'req':   '#sec-req',
+  'friends':'#sec-friends'
+};
+navBtns.forEach(btn=>btn.onclick=_=>{
+  navBtns.forEach(b=>b.classList.toggle('active',b===btn));
+  for(const k in panes) document.querySelector(panes[k]).style.display=k===btn.dataset.sec?'block':'none';
+});
+
+function userRowHTML(u,actions=''){return `
+  <div class="user-row">
+    <div class="user-info">
+      <i class="fa fa-user"></i>
+      <span>${u.name} <small style="color:#888">(${u.email})</small></span>
+    </div>
+    ${actions}
+  </div>`}
+
+/* ---------- 1. Recomandări ---------- */
+async function loadRecommended(){
+  const box=document.querySelector('#sec-rec');
+  box.innerHTML='<h2>Recomandări prieteni</h2><p>loading…</p>';
+  const r=await fetch('/api/friends/recommended'); const data=await r.json();
+  if(!data.length){box.innerHTML='<h2>Recomandări prieteni</h2><p>Niciun user sugerat.</p>';return;}
+  box.innerHTML='<h2>Recomandări prieteni</h2><div class="list"></div>';
+  const list=box.querySelector('.list');
+  data.forEach(u=>{
+    list.insertAdjacentHTML('beforeend',
+      userRowHTML(u,`<button onclick="sendReq(${u.id},this)">Trimite cerere</button>`));
+  });
+}
+async function sendReq(id,btn){
+  btn.disabled=true;btn.textContent='…';
+  const ok=await fetch('/api/friends/requests',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({target_id:id})});
+  btn.textContent=ok.ok?'Trimis':'Deja trimis';
+}
+
+/* ---------- 2. Cereri primite ---------- */
+async function loadRequests(){
+  const box=document.querySelector('#sec-req');
+  box.innerHTML='<h2>Cereri primite</h2><p>loading…</p>';
+  const r=await fetch('/api/friends/requests');const data=await r.json();
+  if(!data.length){box.innerHTML='<h2>Cereri primite</h2><p>Nu ai cereri.</p>';return;}
+  box.innerHTML='<h2>Cereri primite</h2><div class="list"></div>';
+  const list=box.querySelector('.list');
+  data.forEach(req=>{
+    list.insertAdjacentHTML('beforeend',
+      userRowHTML({name:req.from_name,email:req.from_email},
+        `<button onclick="ansReq(${req.id},'accept',this)">✔</button>
+         <button onclick="ansReq(${req.id},'deny',this)">✖</button>`));
+  });
+}
+async function ansReq(id,act,btn){
+  btn.parentElement.querySelectorAll('button').forEach(b=>b.disabled=true);
+  const r=await fetch(`/api/friends/requests/${id}/answer`,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:act})});
+  if(r.ok) btn.closest('.user-row').remove();
+}
+
+/* ---------- 3. Lista prieteni ---------- */
+async function loadFriends(){
+  const box=document.querySelector('#sec-friends');
+  box.innerHTML='<h2>Prieteni</h2><p>loading…</p>';
+  const r=await fetch('/api/friends/list');const data=await r.json();
+  if(!data.length){box.innerHTML='<h2>Prieteni</h2><p>Nu ai prieteni.</p>';return;}
+  box.innerHTML='<h2>Prieteni</h2><div class="list"></div>';
+  const list=box.querySelector('.list');
+  data.forEach(f=>{
+    list.insertAdjacentHTML('beforeend',`
+      <div class="user-row">
+        <div class="user-info">
+          <img class="poster" src="${f.poster_path
+                 ? 'https://image.tmdb.org/t/p/w92'+f.poster_path
+                 : '/static/no_image_available.png'}">
+          <div>
+            <div>${f.name} <small style="color:#888">(${f.email})</small></div>
+            <small>${f.title} – ⭐ ${f.rating}/5</small>
+          </div>
+        </div>
+        <div>
+          <button onclick="showMovies(${f.id}, this)">🎬 Filme</button>
+
+          <button onclick="toggleMsg(${f.id},'${f.name.replace(/'/g,'&#39;')}')">✉️ Mesaj</button>
+          <button onclick="deleteFriend(${f.id}, this)">🗑️ Șterge</button>
+        </div>
+      </div>
+      <div id="msg-box-${f.id}" style="display:none;margin:.4rem 0 .8rem 2.2rem">
+        <textarea class="msgBox" placeholder="Scrie mesaj…"></textarea>
+        <button onclick="sendMsg(${f.id})">Send</button>
+      </div>
+    `);
+  });
+}
+async function showMovies(fid, btn) {
+  // find or create the container under this user-row
+  let row = btn.closest('.user-row');
+  let container = row.nextElementSibling;
+  if (!container || !container.classList.contains('movies-box')) {
+    container = document.createElement('div');
+    container.className = 'movies-box';
+    row.parentNode.insertBefore(container, row.nextSibling);
+  }
+  // toggle: if already visible, hide it
+  if (container.innerHTML.trim()) {
+    container.innerHTML = '';
+    return;
+  }
+
+  // otherwise, fetch and render
+  container.innerHTML = '<p style="color:#888;margin-left:2.2rem">Loading movies…</p>';
+  const res = await fetch(`/api/friends/${fid}/movies`);
+  if (!res.ok) {
+    container.innerHTML = '<p style="color:red;margin-left:2.2rem">Error loading movies.</p>';
+    return;
+  }
+  const movies = await res.json();
+  if (!movies.length) {
+    container.innerHTML = '<p style="color:#888;margin-left:2.2rem">Fără ratinguri.</p>';
+    return;
+  }
+
+  // build carousel
+  container.innerHTML = ''; 
+  movies.forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'movie-card';
+    card.innerHTML = `
+      <img src="https://image.tmdb.org/t/p/w185${m.poster_path}" alt="${m.title}">
+      <div class="title">${m.title}</div>
+      <div class="rating">⭐ ${m.rating}/5</div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function toggleMsg(id,name){
+  const box=document.getElementById(`msg-box-${id}`);
+  box.style.display=box.style.display==='none'?'block':'none';
+}
+async function sendMsg(fid){
+  const box=document.getElementById(`msg-box-${fid}`);
+  const ta=box.querySelector('.msgBox'); const txt=ta.value.trim();
+  if(!txt) return;
+  await fetch('/api/messages/send',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({to:fid,body:txt})});
+  ta.value=''; alert('Trimis!');
+}
+// DELETE FRIEND
+async function deleteFriend(fid, btn) {
+  if (!confirm('Sigur vrei să ștergi prietenul?')) return;
+  btn.disabled = true;
+  const res = await fetch(`/api/friends/${fid}/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json' }
+  });
+  if (res.ok) {
+    // remove both the row and any movies carousel under it
+    const row = btn.closest('.user-row');
+    const carousel = row.nextElementSibling;
+    row.remove();
+    if (carousel && carousel.classList.contains('movies-box')) carousel.remove();
+  } else {
+    alert('Eroare la ștergerea prietenului.');
+    btn.disabled = false;
+  }
+}
+/* ---------- 4. Mesaje primite ---------- */
+async function loadInbox(){
+  const box = document.querySelector('#sec-inbox');
+  box.innerHTML = '<h2>Mesaje primite</h2><p>loading…</p>';
+  const res = await fetch('/api/messages/inbox');
+  if (!res.ok) {
+    box.innerHTML = '<h2>Mesaje primite</h2><p style="color:red">Eroare la încărcare.</p>';
+    return;
+  }
+  const msgs = await res.json();
+  if (!msgs.length) {
+    box.innerHTML = '<h2>Mesaje primite</h2><p>Nu ai mesaje noi.</p>';
+    return;
+  }
+
+  let html = '<h2>Mesaje primite</h2><div class="list">';
+  msgs.forEach(m => {
+    html += `
+      <div class="user-row" id="msg-row-${m.id}">
+        <div class="user-info">
+          <i class="fa fa-envelope"></i>
+          <span>
+            <strong>${m.sender_name}</strong>
+            <small style="color:#888">(${m.sender_email})</small>
+          </span>
+        </div>
+        <div>
+          <small style="color:#aaa">${m.sent_at}</small>
+          <button onclick="deleteMessage(${m.id}, this)" style="margin-left:.5rem;">
+            🗑️ Șterge
+          </button>
+        </div>
+      </div>
+      <div style="padding:.5rem 1rem; background:#292929; margin-bottom:.6rem; border-radius:4px;">
+        ${m.body}
+      </div>
+    `;
+  });
+  html += '</div>';
+  box.innerHTML = html;
+}
+/* DELETE A MESSAGE */
+async function deleteMessage(msgId, btn) {
+  if (!confirm('Sigur vrei să ștergi acest mesaj?')) return;
+  btn.disabled = true;
+  const res = await fetch(`/api/messages/${msgId}/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json' }
+  });
+  if (res.ok) {
+    // remove the message row and its body
+    const row = document.getElementById(`msg-row-${msgId}`);
+    const bodyDiv = row.nextElementSibling;
+    row.remove();
+    if (bodyDiv) bodyDiv.remove();
+  } else {
+    alert('Eroare la ștergerea mesajului.');
+    btn.disabled = false;
+  }
+}
+/* --- init --- */
+loadRecommended(); loadRequests(); loadFriends();loadInbox();
+</script>
+{% endblock %}

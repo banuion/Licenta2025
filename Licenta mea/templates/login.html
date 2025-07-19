@@ -1,15 +1,102 @@
 {% extends 'base.html' %}
 
-{% block title %}Login - Movie App{% endblock %}
+{% block title %}Login – Movie App{% endblock %}
 
 {% block content %}
+<style>
+  .page-background {
+    background: url('{{ url_for('static', filename='image.jpg') }}') no-repeat center center fixed;
+    background-size: cover;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  .auth-card {
+    background-color: rgba(0, 0, 0, 0.8);
+    padding: 2rem 1.5rem;
+    border-radius: 8px;
+    max-width: 360px;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    color: #fff;
+  }
+  .auth-card h2 {
+    margin-bottom: 1.25rem;
+    text-align: center;
+    font-size: 1.75rem;
+  }
+  .auth-card label {
+    display: block;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+  }
+  .auth-card input[type="email"],
+  .auth-card input[type="password"] {
+    width: 100%;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+    background: #222;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+  .auth-card input[type="submit"] {
+    width: 100%;
+    padding: 0.75rem;
+    margin-top: 1.5rem;
+    background: #e91e63;
+    border: none;
+    border-radius: 4px;
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .auth-card input[type="submit"]:hover {
+    background: #d81b60;
+  }
+  .auth-card p {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+  .auth-card a {
+    color: #e91e63;
+    text-decoration: none;
+  }
+  .auth-card a:hover {
+    text-decoration: underline;
+  }
+
+  /* Responsive tweaks */
+  @media (max-width: 400px) {
+    .auth-card {
+      padding: 1.5rem 1rem;
+    }
+    .auth-card h2 {
+      font-size: 1.5rem;
+    }
+  }
+</style>
+
+<div class="page-background">
+  <div class="auth-card">
     <h2>Login</h2>
     <form method="post" action="{{ url_for('login') }}">
-        <label>Email:</label><br>
-        <input type="email" name="email" required><br>
-        <label>Password:</label><br>
-        <input type="password" name="password" required><br>
-        <input type="submit" value="Login">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" placeholder="you@example.com" required>
+
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" placeholder="••••••••" required>
+
+      <input type="submit" value="Login">
     </form>
-    <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a>.</p>
+    <p>New here? <a href="{{ url_for('register') }}">Register</a></p>
+  </div>
+</div>
 {% endblock %}

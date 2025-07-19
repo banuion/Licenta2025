@@ -1,94 +1,139 @@
+{# templates/home.html #}
 {% extends 'base.html' %}
 
-{% block title %}Acasă - Movie App{% endblock %}
+{% block title %}Acasă – Movie App{% endblock %}
 
 {% block header_content %}
-    <form class="search-form" method="get" action="{{ url_for('search') }}">
-        <input type="text" name="query" placeholder="Caută filme..." id="search-input" autocomplete="off">
-        <button type="submit">Caută</button>
-        <ul id="autoComplete_list"></ul>
-    </form>
+  {{ super() }}
+  <!-- Search form -->
+  <form class="search-form" method="get" action="{{ url_for('search') }}" style="margin:1rem 0; text-align:center;">
+    <input
+      type="text" name="query" id="search-input"
+      placeholder="Caută filme…" autocomplete="off"
+      style="width:60%; padding:.5rem; border:1px solid #ccc; border-radius:4px 0 0 4px;">
+    <button
+      type="submit"    
+      style="padding:.6rem 1rem; background:#ffc107; border:none; border-radius:0 4px 4px 0; cursor:pointer;">
+      Caută
+    </button>
+    <ul id="autoComplete_list"></ul>
+  </form>
+
+  <!-- Meniu de algoritmi + browse/new/popular/genres -->
+  <div class="algo-menu" style="display:flex; flex-wrap:wrap; gap:.5rem; justify-content:center;">
+    {% for key,label in [
+      ('all',       'Toate'),
+      ('new',       'Filme Noi'),
+      ('popular',   'Filme Populare'),
+      ('action',    'Acțiune'),
+      ('comedy',    'Comedie'),
+      ('drama',     'Dramă'),
+      ('horror',    'Horror'),
+      ('animation', 'Animație'),
+      ('adventure', 'Aventură'),
+      ('click',     'Click-Based'),
+      ('gender',    'Same-Gender'),
+      ('genocc',    'Gen+Ocupație'),
+      ('weighted',  'Weighted-Mean'),
+      ('topreviews','Top-Reviews'),
+      ('als',       'ALS'),
+      ('gnn',       'GNN'),
+      ('nmf',       'NMF'),
+      ('knn',       'KNN'),
+      ('gmf',       'MLP+GMF'),
+      ('autoenc',   'Autoencoder'),
+      ('cf',        'Collaborative'),
+      ('nn',        'NeuralNet'),
+      ('content',   'Content-Based')
+    ] %}
+      <button
+        class="alg-btn{% if loop.first %} active{% endif %}"
+        data-algo="{{ key }}"
+        style="padding:.5rem 1rem; border:none; border-radius:4px; background:#333; color:#fff; cursor:pointer; transition:background .2s;">
+        {{ label }}
+      </button>
+    {% endfor %}
+  </div>
 {% endblock %}
 
 {% block content %}
 <main>
-    <!-- Collaborative Filtering Recommendations -->
-    {% if recommended_movies %}
-    <section class="recommendations-section">
-        <h2>Recomandări(Collaborative) pentru tine</h2>
-        <div class="recommended-movies">
-            {% for movie in recommended_movies %}
-            <div class="recommended-movie-item">
-                <a href="{{ url_for('movie_detail', movie_id=movie[0]) }}">
-                    <img src="https://image.tmdb.org/t/p/w200{{ movie[2] }}" alt="{{ movie[1] }}">
-                    <p>{{ movie[1] }}</p>
-                </a>
-            </div>
-            {% endfor %}
-        </div>
-    </section>
-    {% endif %}
-
-    <!-- Content-Based Recommendations -->
-    {% if content_based_recommended_movies %}
-    <section class="recommendations-section">
-        <h2>Recomandări pe baza preferințelor tale</h2>
-        <div class="recommended-movies">
-            {% for movie in content_based_recommended_movies %}
-            <div class="recommended-movie-item">
-                <a href="{{ url_for('movie_detail', movie_id=movie[0]) }}">
-                    <img src="https://image.tmdb.org/t/p/w200{{ movie[2] }}" alt="{{ movie[1] }}">
-                    <p>{{ movie[1] }}</p>
-                </a>
-            </div>
-            {% endfor %}
-        </div>
-    </section>
-    {% endif %}
-
-    <!-- Sort Options -->
-    <div class="sort-options">
-        <a href="{{ url_for('index', sort_by='release_date') }}" class="{{ 'active' if sort_by == 'release_date' else '' }}">
-            Filme Noi
-        </a> |
-        <a href="{{ url_for('index', sort_by='popularity') }}" class="{{ 'active' if sort_by == 'popularity' else '' }}">
-            Filme Populare
-        </a>
-    </div>
-
-    <!-- Display Movies Based on Sorting -->
-    <h2>{{ 'Filme Noi' if sort_by == 'release_date' else 'Filme Populare' }}</h2>
-    <div class="horizontal-movie-list">
-        {% for movie in movies %}
-        <div class="movie-item">
-            <img src="https://image.tmdb.org/t/p/w500{{ movie[2] }}" alt="{{ movie[1] }}" class="movie-poster">
-            <div class="movie-info">
-                <p class="movie-title">
-                    <a href="{{ url_for('movie_detail', movie_id=movie[0]) }}">{{ movie[1] }}</a> ({{ movie[4] }})
-                </p>
-                <p class="movie-overview">{{ movie[3] }}</p>
-            </div>
-        </div>
+  {% macro section_for(key,title,listvar,is_rating=False) -%}
+    <section
+      class="recommendations-section"
+      data-algo="{{ key }}"
+      style="display:none; flex-wrap:wrap; gap:1rem; margin-bottom:2rem;">
+      <h2 style="width:100%;">{{ title }}</h2>
+      {% if listvar %}
+        {% for m in listvar %}
+          <div class="recommended-movie-item" style="width:150px; background:#1e1e1e; border-radius:6px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,.5); transition:transform .2s;">
+            <a href="{{ url_for('movie_detail', movie_id=m[0]) }}" style="color:inherit; text-decoration:none;">
+              <img src="https://image.tmdb.org/t/p/w200{{ m[2] }}" alt="{{ m[1] }}" style="width:100%; display:block;">
+              <p style="padding:.5rem; font-size:.9rem; color:#ddd; text-align:center;">
+                {% if is_rating %}Nota: {{ m[3]|round(2) }}{% else %}{{ m[1] }}{% endif %}
+              </p>
+            </a>
+          </div>
         {% endfor %}
-    </div>
+      {% else %}
+        <p style="color:#ccc; width:100%;">Nicio recomandare în această categorie.</p>
+      {% endif %}
+    </section>
+  {%- endmacro %}
 
-    <!-- Pagination -->
-    <div class="pagination">
-        {% if page > 1 %}
-        <a href="{{ url_for('index', page=page - 1, sort_by=sort_by) }}">Pagina anterioară</a>
-        {% endif %}
-        <span>Pagina {{ page }} din {{ total_pages }}</span>
-        {% if page < total_pages %}
-        <a href="{{ url_for('index', page=page + 1, sort_by=sort_by) }}">Pagina următoare</a>
-        {% endif %}
+  {{ section_for('all',       'Toate Filmele Recomandate',        movies) }}
+  {{ section_for('new',       'Filme Noi',                       new_movies) }}
+  {{ section_for('popular',   'Filme Populare',                  popular_movies) }}
+  {{ section_for('action',    'Acțiune',                         action_movies) }}
+  {{ section_for('comedy',    'Comedie',                         comedy_movies) }}
+  {{ section_for('drama',     'Dramă',                           drama_movies) }}
+  {{ section_for('horror',    'Horror',                          horror_movies) }}
+  {{ section_for('animation', 'Animație',                        animation_movies) }}
+  {{ section_for('adventure', 'Aventură',                        adventure_movies) }}
 
-        <!-- Go to Page Form -->
-        <form method="get" action="{{ url_for('index') }}" class="goto-page-form">
-            <label for="goto-page">Du-te la pagina:</label>
-            <input type="number" name="page" id="goto-page" min="1" max="{{ total_pages }}" required>
-            <input type="hidden" name="sort_by" value="{{ sort_by }}">
-            <button type="submit">Go</button>
-        </form>
-    </div>
+  {{ section_for('click',     'Recomandări Bazate pe Clickuri',   click_based_recommended_movies) }}
+  {{ section_for('gender',    'Recomandări Same-Gender',          gender_based_recommended_movies) }}
+  {{ section_for('genocc',    'Recomandări Gen+Ocupație',         gen_occ_based_recommended_movies) }}
+  {{ section_for('weighted',  'Recomandări Weighted-Mean',        weighted_mean_recommended_movies) }}
+  {{ section_for('topreviews','Top 7 Filme după Nota Medie',      top_rated_movies_by_reviews, true) }}
+  {{ section_for('als',       'Recomandări ALS',                  als_recommended_movies) }}
+  {{ section_for('gnn',       'Recomandări GNN',                  gnn_recommended_movies) }}
+  {{ section_for('nmf',       'Recomandări NMF',                  nmf_recommended_movies) }}
+  {{ section_for('knn',       'Recomandări KNN',                  knn_recommended_movies) }}
+  {{ section_for('gmf',       'Recomandări MLP+GMF',              recommended_moviesgmf) }}
+  {{ section_for('autoenc',   'Recomandări Autoencoder',          auto_recommended_movies) }}
+  {{ section_for('cf',        'Recomandări Colaborative',         recommended_movies) }}
+  {{ section_for('nn',        'Recomandări NeuralNet',            nn_recommended_movies) }}
+  {{ section_for('content',   'Recomandări Content-Based',        content_based_recommended_movies) }}
 </main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const buttons  = document.querySelectorAll('.alg-btn');
+    const sections = document.querySelectorAll('.recommendations-section');
+
+    function showSection(key) {
+             // toggle active class on buttons
+             buttons.forEach(b => b.classList.toggle('active', b.dataset.algo === key));
+        
+             // if "all" selected, show every section
+             if (key === 'all') {
+               sections.forEach(sec => sec.style.display = 'flex');
+             }
+             // otherwise show only matching section
+             else {
+               sections.forEach(sec => {
+                 sec.style.display = (sec.dataset.algo === key) ? 'flex' : 'none';
+              });
+             }
+           }
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => showSection(btn.dataset.algo));
+    });
+
+    // on-load: show only the 'all' section
+    showSection('all');
+  });
+</script>
 {% endblock %}

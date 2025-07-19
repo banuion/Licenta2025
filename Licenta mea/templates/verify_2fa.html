@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verificare 2FA</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+<body>
+    <h1>Introdu codul din aplicația ta de autentificare</h1>
+    <form method="POST">
+        <input type="text" name="otp_code" placeholder="Cod OTP" required>
+        <button type="submit">Verifică</button>
+    </form>
+</body>
+</html>

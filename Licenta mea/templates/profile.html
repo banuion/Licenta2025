@@ -1,0 +1,96 @@
+{# templates/profile.html #}
+{% extends 'base.html' %}
+{% block title %}Profil – Movie App{% endblock %}
+
+{% block content %}
+<main style="max-width:800px; margin:2rem auto; color:#fff;">
+  <h1>Profilul tău</h1>
+
+  <!-- Date personale -->
+  <section style="background:#1e1e1e; padding:1rem; border-radius:6px;">
+    <h2>Date personale</h2>
+    <ul style="list-style:none; padding:0;">
+      <li><strong>Nume:</strong> {{ user['name'] }}</li>
+      <li><strong>Email:</strong> {{ user['email'] }}</li>
+      {% if user['age'] %}<li><strong>Vârstă:</strong> {{ user['age'] }}</li>{% endif %}
+      {% if user['occupation'] %}<li><strong>Ocupație:</strong> {{ user['occupation'] }}</li>{% endif %}
+      {% if user['sex'] %}<li><strong>Sex:</strong> {{ user['sex'] }}</li>{% endif %}
+      {% if user['address'] %}<li><strong>Adresă:</strong> {{ user['address'] }}</li>{% endif %}
+    </ul>
+  </section>
+
+  <!-- Filme selectate -->
+  <section style="background:#1e1e1e; padding:1rem; border-radius:6px; margin-top:1rem;">
+    <h2>Filme selectate</h2>
+    {% if selected_movies %}
+      <ul style="list-style:none; padding:0;">
+        {% for m in selected_movies %}
+          <li>
+            <a href="{{ url_for('movie_detail', movie_id=m['movie_id']) }}"
+               style="color:#ffc107;">
+              {{ m['title'] }}
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p style="color:#ccc;">Nu ai selectat niciun film.</p>
+    {% endif %}
+  </section>
+
+  <!-- Rating-urile tale -->
+  <section style="background:#1e1e1e; padding:1rem; border-radius:6px; margin-top:1rem;">
+    <h2>Rating-urile tale</h2>
+    {% if user_ratings %}
+      <ul style="list-style:none; padding:0;">
+        {% for r in user_ratings %}
+          <li>
+            <a href="{{ url_for('movie_detail', movie_id=r['movie_id']) }}"
+               style="color:#ffc107;">
+              {{ r['title'] }}
+            </a> – <strong>{{ r['rating'] }}/5</strong>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p style="color:#ccc;">Nu ai dat niciun rating.</p>
+    {% endif %}
+  </section>
+
+  <!-- Form schimbare parolă -->
+  <section style="background:#1e1e1e; padding:1rem; border-radius:6px; margin-top:1rem;">
+    <h2>Schimbă parola</h2>
+    <form method="post" action="{{ url_for('profile') }}">
+      <label>Parola curentă:
+        <input type="password" name="current_password" required>
+      </label><br><br>
+      <label>Parola nouă:
+        <input type="password" name="new_password" required>
+      </label><br><br>
+      <label>Confirmă parola nouă:
+        <input type="password" name="confirm_password" required>
+      </label><br><br>
+      <button type="submit"
+              style="background:#28a745;color:#fff;padding:.5rem 1rem;border:none;border-radius:4px;">
+        Salvează
+      </button>
+      <button type="reset"
+              style="background:#dc3545;color:#fff;padding:.5rem 1rem;border:none;border-radius:4px; margin-left:.5rem;">
+        Resetează
+      </button>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul style="margin-top:1rem;">
+          {% for category, message in messages %}
+            <li style="color:{{ 'tomato' if category=='danger' else 'lightgreen' }};">
+              {{ message }}
+            </li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+  </section>
+</main>
+{% endblock %}

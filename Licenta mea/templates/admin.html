@@ -1,0 +1,320 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard – Movie App{% endblock %}
+
+{% block content %}
+<style>
+  .admin-container { max-width: 1200px; margin: 2rem auto; color: #fff; }
+  .admin-menu { display: flex; gap: 1rem; }
+  .admin-menu button { flex: 1; padding: .8rem; background: #333; border: none; color: #fff; cursor: pointer; border-radius: 4px; transition: background .2s; }
+  .admin-menu button.active { background: #e91e63; }
+  .section { display: none; margin-top: 2rem; }
+  .section.active { display: block; }
+  .subsection { margin-bottom: 2rem; background: #1e1e1e; padding: 1rem; border-radius: 6px; }
+  .subsection h3 { margin-top: 0; }
+  canvas { background: #222; border-radius: 6px; }
+</style>
+
+<div class="admin-container">
+  <h1>Admin Dashboard</h1>
+  <div class="admin-menu">
+    <button data-sec="stats" class="active">📊 Statistici</button>
+    <button data-sec="ops">⚙️ Operații</button>
+  </div>
+
+  <!-- Statistici -->
+<div id="stats" class="section active">
+
+    <!-- Clusterizare Utilizatori cu K‑Means -->
+    <div class="subsection">
+      <h3>Clusterizare Utilizatori (K‑Means)</h3>
+      <canvas id="chart-users-cluster" width="700" height="450"></canvas>
+    </div>
+
+    <!-- RMSE Top 10 Utilizatori -->
+    <div class="subsection">
+      <h3>Top 10 Utilizatori după Content‑Based RMSE</h3>
+      <canvas id="chart-rmse-top10" width="700" height="350"></canvas>
+    </div>
+
+    <!-- RMSE pentru Algoritmi (Cross-Validation) -->
+    <div class="subsection">
+      <h3>RMSE pentru Algoritmi (Cross-Validation)</h3>
+      <canvas id="chart-rmse1" width="600" height="300"></canvas>
+    </div>
+
+    <!-- RMSE Baza Mea de Date (Cross-Validation) -->
+    <div class="subsection">
+      <h3>RMSE Baza Mea de Date (Cross-Validation)</h3>
+      <canvas id="chart-rmse2" width="600" height="300"></canvas>
+    </div>
+
+    <!-- Precision / Recall / F1 (Cross-Validation) -->
+    <div class="subsection">
+      <h3>Precision / Recall / F1 (Cross-Validation)</h3>
+      <canvas id="chart-prf" width="600" height="300"></canvas>
+    </div>
+    <!-- Top 10 Filme – Cele Mai Bine Evaluate -->
+    <div class="subsection">
+    <h3>Top 10 Filme – Cele Mai Bine Evaluate</h3>
+    <canvas id="chart-top-movies" width="700" height="350"></canvas>
+    </div>
+
+    <!-- Flop 10 Filme – Cele Mai Prost Evaluate -->
+    <div class="subsection">
+    <h3>Flop 10 Filme – Cele Mai Prost Evaluate</h3>
+    <canvas id="chart-flop-movies" width="700" height="350"></canvas>
+    </div>
+
+</div>
+
+
+  <!-- Operații -->
+  <div id="ops" class="section">
+    <div class="subsection">
+      <h3>Command Center</h3>
+      <!-- Afișare utilizatori -->
+      <div>
+        <h4>Utilizatori</h4>
+        <button id="loadUsersBtn" style="padding:.6rem 1.2rem; background:#ffc107; border:none; border-radius:4px; color:#000; cursor:pointer;">
+          👥 Afișează utilizatori
+        </button>
+        <div id="usersTableContainer"></div>
+      </div>
+        <div id="userDetailContainer" style="display:none; background:#222; padding:1rem; border-radius:6px; margin-top:1rem;">
+    <h4>Detalii Utilizator</h4>
+    <div id="userDetailContent"></div>
+    </div>
+
+       <!-- Formular trimitere postere -->
+    <form id="posterForm" style="display:flex; flex-wrap:wrap; gap:1rem; align-items:center;">
+      <label style="flex:1 1 220px;">
+        <span>Email destinatar&nbsp;(opțional)&nbsp;:</span><br>
+        <input type="email" name="email" placeholder="user@example.com"
+               style="width:100%; padding:.4rem; border-radius:4px; border:1px solid #666;">
+      </label>
+
+      <label style="display:flex; align-items:center; gap:.4rem;">
+        <input type="checkbox" name="send_all">
+        <span>Trimite la <strong>toți</strong> utilizatorii</span>
+      </label>
+
+      <button id="sendPostersBtn" type="submit"
+              style="padding:.6rem 1.2rem; background:#17a2b8; border:none;
+                     border-radius:4px; color:#fff; cursor:pointer;">
+        ✉️ Trimite 5 postere filme noi
+      </button>
+    </form>
+
+    <hr style="margin:1.5rem 0; border-color:#444;">
+    
+      <button style="padding:.6rem 1rem; background:#28a745; border:none; border-radius:4px; color:#fff; cursor:pointer; margin-right:.5rem;">Backup DB</button>
+      <button style="padding:.6rem 1rem; background:#dc3545; border:none; border-radius:4px; color:#fff; cursor:pointer;">Clear Cache</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Tab switching
+document.querySelectorAll('.admin-menu button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.admin-menu button').forEach(b => b.classList.toggle('active', b===btn));
+    const sec = btn.dataset.sec;
+    document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.id===sec));
+  });
+});
+
+
+/*****************************  BEST / FLOP MOVIES  ***************************/
+const bestLabels = {{ best_movies|map(attribute='title')|list|tojson }};
+const bestVals   = {{ best_movies|map(attribute='avg')|list|tojson }};
+new Chart(document.getElementById('chart-top-movies'), {
+  type: 'bar',
+  data: { labels: bestLabels, datasets: [{ label: 'Rating Mediu', data: bestVals }] },
+  options: { indexAxis:'y', scales:{ x:{ beginAtZero:true, max:5 } }, plugins:{ legend:{ display:false } } }
+});
+
+const flopLabels = {{ flop_movies|map(attribute='title')|list|tojson }};
+const flopVals   = {{ flop_movies|map(attribute='avg')|list|tojson }};
+new Chart(document.getElementById('chart-flop-movies'), {
+  type: 'bar',
+  data: { labels: flopLabels, datasets: [{ label: 'Rating Mediu', data: flopVals }] },
+  options: { indexAxis:'y', scales:{ x:{ beginAtZero:true, max:5 } }, plugins:{ legend:{ display:false } } }
+});
+
+/*****************************  CLUSTER USERS  ********************************/ 
+const clusterColors = ['#6a0', '#0af', '#fa0'];
+const clustersData  = {{ clusters_points|tojson }};   // list of arrays [{x,y}]
+const centroidData  = {{ centroid_points|tojson }};   // list of {x,y}
+
+const scatterSets = clustersData.map((pts, idx) => ({
+  label: `Cluster ${idx+1}`,
+  data: pts,
+  pointBackgroundColor: clusterColors[idx],
+  pointRadius: 5
+}));
+scatterSets.push({
+  label: 'Centroizi',
+  data: centroidData,
+  pointBackgroundColor: '#000',
+  pointRadius: 8,
+  pointStyle: 'cross'
+});
+
+new Chart(document.getElementById('chart-users-cluster'), {
+  type: 'scatter',
+  data: { datasets: scatterSets },
+  options: {
+    plugins: { legend: { position: 'bottom' } },
+    scales: {
+      x: { grid: { color: '#333' } },
+      y: { grid: { color: '#333' } }
+    }
+  }
+});
+
+/*****************************  TOP‑10 RMSE  ********************************/ 
+const top10Labels = {{ top10_rmse|map(attribute='user_name')|list|tojson }};
+const top10Values = {{ top10_rmse|map(attribute='rmse')|list|tojson }};
+new Chart(document.getElementById('chart-rmse-top10'), {
+  type: 'bar',
+  data: { labels: top10Labels, datasets: [{ label: 'Content‑Based RMSE', data: top10Values }] },
+  options: {
+    indexAxis: 'y',
+    scales: { x: { beginAtZero: true } },
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => `RMSE: ${ctx.parsed.x.toFixed(4)}` } }
+    }
+  }
+});
+
+/***************************** ALGORITMS RMSE *******************************/
+const rmse1Labels   = ['svd_rmse','nn_rmse','mlp_gmf_rmse','autoencoder_rmse','gnn_rmse'];
+const rmse1Values   = [1.0010,    0.8527,    0.8368,        0.7200,          1.0484];
+new Chart(document.getElementById('chart-rmse1'), {
+  type:'bar', data:{ labels: rmse1Labels, datasets:[{ label:'RMSE', data: rmse1Values }] }, options:{ indexAxis:'y', scales:{ x:{ beginAtZero:true } } }
+});
+
+/***************************** DB RMSE **************************************/
+const rmse2Labels   = ['baseline_rmse','svd_rmse','cf_gender_rmse','cf_gen_occ_rmse','knn_rmse','wmean_rmse'];
+const rmse2Values   = [1.2426,         0.7227,    0.3292,         0.1392,        0.2545,    0.3532];
+new Chart(document.getElementById('chart-rmse2'), {
+  type:'bar', data:{ labels: rmse2Labels, datasets:[{ label:'RMSE', data: rmse2Values }] }, options:{ indexAxis:'y', scales:{ x:{ beginAtZero:true } } }
+});
+
+/***************************** PRF ******************************************/
+const prfLabels      = ['baseline','svd','cf_gender','cf_gen_occ','knn','wmean'];
+const prfPrecision   = [0.0000,     0.7454,  0.9100,      0.9905,      0.9396,  0.8787];
+const prfRecall      = [0.0000,     1.0000,  1.0000,      1.0000,      0.9826,  1.0000];
+const prfF1          = [0.0000,     0.8534,  0.9513,      0.9951,      0.9598,  0.9341];
+new Chart(document.getElementById('chart-prf'), {
+  type:'bar',
+  data:{ labels: prfLabels, datasets:[
+    { label:'Precision', data: prfPrecision },
+    { label:'Recall',    data: prfRecall    },
+    { label:'F1',        data: prfF1        }
+  ] },
+  options:{ indexAxis:'y', scales:{ x:{ beginAtZero:true } }, plugins:{ legend:{ position:'bottom' } } }
+});
+/********************  FORM POSTER EMAIL ********************/
+document.getElementById('posterForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const formData = new FormData(e.target);
+  const payload = {
+    email    : formData.get('email') || null,
+    send_all : formData.get('send_all') ? true : false
+  };
+
+  try {
+    const res = await fetch('{{ url_for("send_posters") }}', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(payload)
+    });
+    const data = await res.json();
+    alert(data.message);
+  } catch (err) {
+    alert('Eroare la trimiterea email‑ului.');
+  }
+});
+
+// Afișare și gestionare utilizatori
+document.getElementById('loadUsersBtn').addEventListener('click', async () => {
+  try {
+    const res = await fetch('{{ url_for("list_users") }}');
+    const users = await res.json();
+    let html = `<table><thead><tr><th>ID</th><th>Nume</th><th>Email</th><th>Acțiuni</th></tr></thead><tbody>`;
+    users.forEach(u => {
+      html += `<tr>
+        <td>${u.id}</td>
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td>
+          <button class="showBtn" data-id="${u.id}">Detalii</button>
+          <button class="deleteBtn" data-id="${u.id}">Șterge</button>
+        </td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    document.getElementById('usersTableContainer').innerHTML = html;
+
+    // evenimente show
+    document.querySelectorAll('.showBtn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        try {
+        const id  = e.target.dataset.id;
+        const res = await fetch(`/admin/users/${id}`);
+        if (!res.ok) throw new Error('Nu s-au putut încărca detaliile');
+        const data = await res.json();
+
+        // Populăm containerul de detalii
+        const detailCont   = document.getElementById('userDetailContainer');
+        const detailContent= document.getElementById('userDetailContent');
+        let html = `<table>`;
+        html += `<tr><th>ID:</th><td>${data.id}</td></tr>`;
+        html += `<tr><th>Nume:</th><td>${data.name}</td></tr>`;
+        html += `<tr><th>Email:</th><td>${data.email}</td></tr>`;
+        html += `<tr><th>Vârstă:</th><td>${data.age || '-'}</td></tr>`;
+        html += `<tr><th>Ocupație:</th><td>${data.occupation || '-'}</td></tr>`;
+        html += `<tr><th>Sex:</th><td>${data.sex || '-'}</td></tr>`;
+        html += `<tr><th>Adresă:</th><td>${data.address || '-'}</td></tr>`;
+        html += `<tr><th>2FA activ:</th><td>${data.is_2fa_enabled ? 'Da' : 'Nu'}</td></tr>`;
+        html += `</table><h5>Rating-uri</h5><table><thead><tr><th>Film</th><th>Rating</th></tr></thead><tbody>`;
+        if (data.ratings.length) {
+            data.ratings.forEach(rat => {
+            html += `<tr><td>${rat.movie_title}</td><td style="text-align:right;">${rat.rating}</td></tr>`;
+            });
+        } else {
+            html += `<tr><td colspan="2" style="text-align:center;">Nicio evaluare</td></tr>`;
+        }
+        html += `</tbody></table>`;
+
+        detailContent.innerHTML = html;
+        detailCont.style.display   = 'block';
+        detailCont.scrollIntoView({ behavior: 'smooth' });
+        } catch (err) {
+        alert('Eroare la încărcarea detaliilor: ' + err.message);
+        }
+    });
+    });
+
+    // evenimente delete
+    document.querySelectorAll('.deleteBtn').forEach(btn => btn.addEventListener('click', async e => {
+      const id = e.target.dataset.id;
+      if (!confirm(`Confirmi ștergerea user ${id}?`)) return;
+      const r = await fetch('{{ url_for("delete_user") }}', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user_id: id })
+      });
+      const d = await r.json();
+      alert(d.message);
+      document.getElementById('loadUsersBtn').click();
+    }));
+  } catch {
+    alert('Eroare la încărcarea utilizatorilor.');
+  }
+});
+</script>
+{% endblock %}
